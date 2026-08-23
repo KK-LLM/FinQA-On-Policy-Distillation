@@ -1,0 +1,8 @@
+model_name_or_path: /root/model/Qwen3-8B
+adapter_name_or_path: /root/train_output/Qwen3-8B-LoRA-nothink/checkpoint-5750
+finetuning_type: lora
+template: qwen3_nothink
+export_dir: /root/model/Qwen3-8B-Lora
+export_size: 5
+export_device: cpu
+export_legacy_format: false
