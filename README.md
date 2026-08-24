@@ -84,11 +84,15 @@ FinQA-On-Policy-Distillation/
 │   └── test.json
 └── experiments/
     └── 01-answer-only-teacher-topk32-opd-baseline/
-        └── lora/
-            ├── Qwen3-1.7B/
-            ├── Qwen3-8B/
+        ├── lora/
+        │   ├── Qwen3-1.7B/
+        │   ├── Qwen3-8B/
+        │   ├── data/
+        │   ├── finqa_lora_eval.py
+        │   └── README.md
+        └── opd/
             ├── data/
-            ├── finqa_lora_eval.py
+            ├── scripts/
             └── README.md
 ```
 
@@ -96,8 +100,12 @@ FinQA-On-Policy-Distillation/
 - `lora/data/` 保存 Answer-only LoRA 实际使用的训练、验证和测试数据。
 - `lora/Qwen3-1.7B/` 和 `lora/Qwen3-8B/` 分别保存 Student、Teacher 的 LoRA 训练配置、启动脚本和合并配置。
 - `lora/finqa_lora_eval.py` 为 LoRA 外部评测脚本。
+- `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
+- `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
 
 LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./experiments/01-answer-only-teacher-topk32-opd-baseline/lora/)。
+
+OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./experiments/01-answer-only-teacher-topk32-opd-baseline/opd/)。
 
 ## 数据
 
@@ -109,4 +117,4 @@ FinQA 官方数据来自 [czyssrs/FinQA](https://github.com/czyssrs/FinQA)。本
 | `data/dev.json` | 883 | 验证数据来源 |
 | `data/test.json` | 1,147 | 外部测试数据来源 |
 
-实验目录中的 LoRA 数据由上述官方数据构造，并保持实际训练和评测时使用的输入格式。
+实验目录中的 LoRA 数据由上述官方数据构造，并保持实际训练和评测时使用的输入格式；OPD 数据根据 LoRA Teacher 与 Student 的训练集 K=8 结果进一步筛选。
