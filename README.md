@@ -82,30 +82,30 @@ FinQA-On-Policy-Distillation/
 │   ├── train.json
 │   ├── dev.json
 │   └── test.json
-└── experiments/
-    └── 01-answer-only-teacher-topk32-opd-baseline/
-        ├── lora/
-        │   ├── Qwen3-1.7B/
-        │   ├── Qwen3-8B/
-        │   ├── data/
-        │   ├── finqa_lora_eval.py
-        │   └── README.md
-        └── opd/
-            ├── data/
-            ├── scripts/
-            └── README.md
+└── 01-answer-only-teacher-topk32-opd-baseline/
+    ├── lora/
+    │   ├── Qwen3-1.7B/
+    │   ├── Qwen3-8B/
+    │   ├── data/
+    │   ├── finqa_lora_eval.py
+    │   └── README.md
+    └── opd/
+        ├── data/
+        ├── scripts/
+        └── README.md
 ```
 
 - `data/` 保存 FinQA 官方数据。
+- 编号实验目录直接保存每轮实验的 LoRA、OPD 配置与结果。
 - `lora/data/` 保存 Answer-only LoRA 实际使用的训练、验证和测试数据。
 - `lora/Qwen3-1.7B/` 和 `lora/Qwen3-8B/` 分别保存 Student、Teacher 的 LoRA 训练配置、启动脚本和合并配置。
 - `lora/finqa_lora_eval.py` 为 LoRA 外部评测脚本。
 - `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
 - `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
 
-LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./experiments/01-answer-only-teacher-topk32-opd-baseline/lora/)。
+LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher-topk32-opd-baseline/lora/)。
 
-OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./experiments/01-answer-only-teacher-topk32-opd-baseline/opd/)。
+OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./01-answer-only-teacher-topk32-opd-baseline/opd/)。
 
 ## 数据
 
