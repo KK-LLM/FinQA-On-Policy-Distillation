@@ -1,0 +1,57 @@
+### model
+# 本轮从原始 Qwen3-1.7B Base 开始，不使用上一轮 LoRA 合并模型。
+model_name_or_path: /root/model/Qwen3-1.7B
+
+### method
+stage: sft
+do_train: true
+# 本轮不使用 valid；相关配置保留为注释，避免误启用。
+do_eval: false
+finetuning_type: lora
+lora_rank: 64
+lora_alpha: 128
+flash_attn: fa2
+
+### dataset
+dataset_dir: /root/lora_config
+dataset: finqa_brief_program_train_0813
+# eval_dataset: finqa_brief_program_valid_0813
+template: qwen3_nothink
+# 最终训练序列最大长度为 2994，cutoff_len 3000 可避免截断。
+cutoff_len: 3000
+max_samples: 10000000
+overwrite_cache: true
+preprocessing_num_workers: 8
+dataloader_num_workers: 8
+
+### output
+output_dir: /root/train_output/Qwen3-1.7B-LoRA-BPA-0813
+logging_steps: 10
+save_strategy: steps
+save_steps: 40
+save_total_limit: 10
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: none
+
+### train
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
+gradient_checkpointing: true
+learning_rate: 2.0e-5
+num_train_epochs: 10
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+bf16: true
+fp16: false
+ddp_timeout: 180000000
+
+### eval（本轮禁用）
+# per_device_eval_batch_size: 6
+# eval_strategy: steps
+# eval_steps: 200
+# compute_accuracy: true
+load_best_model_at_end: false
+# metric_for_best_model: eval_loss
+# greater_is_better: false

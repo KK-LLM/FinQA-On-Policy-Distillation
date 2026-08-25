@@ -73,6 +73,21 @@ LoRA checkpoint-800 在同口径测试中达到 20.73% `avg@8` 和 35.92% `best@
 
 上述结果只能说明这套完整训练配置的最终表现，不能将收益或局限严格归因于某一个超参数。LoRA checkpoint-800 也不是本轮 OPD 的实际初始化模型，仅作为同口径外部测试下的性能参照。
 
+## Brief–Program–Answer 三字段 LoRA
+
+Answer-only LoRA 只监督最终答案，无法直接约束问题理解和计算过程。本轮将监督输出扩展为 `Brief–Program–Answer` 三字段：Brief 说明问题目标、关键数值及计算关系，Program 给出可执行的 FinQA Program，Answer 保存归一化结果。
+
+Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套三字段训练数据、System Prompt 和 `qwen3_nothink` 模板。最终训练集包含 6,240 条记录，所有 Program 均通过严格解析和执行校验，Program 执行结果与标准答案一致，Brief 均不超过 64 Qwen3 tokens。
+
+### 外部测试结果
+
+| 角色 | Answer-only LoRA | 三字段 LoRA | `avg@8` 变化 | `best@8` 变化 |
+|---|---:|---:|---:|---:|
+| Student | 21.17% / 34.44% | **41.26% / 57.98%** | **+20.09 个百分点** | **+23.54 个百分点** |
+| Teacher | 59.20% / 63.73% | **64.71% / 72.71%** | **+5.51 个百分点** | **+8.98 个百分点** |
+
+表中模型结果依次为 `avg@8 / best@8`。三字段 LoRA 的 Student 和 Teacher 均取得了更高的外部测试结果，其中 Student 的提升更加明显，为后续 OPD 提供了更强的初始化模型。
+
 ## 目录结构
 
 ```text
@@ -82,21 +97,29 @@ FinQA-On-Policy-Distillation/
 │   ├── train.json
 │   ├── dev.json
 │   └── test.json
-└── 01-answer-only-teacher-topk32-opd-baseline/
-    ├── lora/
-    │   ├── Qwen3-1.7B/
-    │   ├── Qwen3-8B/
-    │   ├── data/
-    │   ├── finqa_lora_eval.py
-    │   └── README.md
-    └── opd/
+├── 01-answer-only-teacher-topk32-opd-baseline/
+│   ├── lora/
+│   │   ├── Qwen3-1.7B/
+│   │   ├── Qwen3-8B/
+│   │   ├── data/
+│   │   ├── finqa_lora_eval.py
+│   │   └── README.md
+│   └── opd/
+│       ├── data/
+│       ├── scripts/
+│       └── README.md
+└── 02-structured-three-field-teacher-only-opd/
+    └── lora/
+        ├── Qwen3-1.7B/
+        ├── Qwen3-8B/
         ├── data/
-        ├── scripts/
+        ├── finqa_three_field_eval.py
+        ├── prompt.py
         └── README.md
 ```
 
 - `data/` 保存 FinQA 官方数据。
-- 编号实验目录直接保存每轮实验的 LoRA、OPD 配置与结果。
+- 编号实验目录直接保存每轮实验的 LoRA、OPD 配置与结果；编号按照方法演进和展示逻辑排列，不代表实际执行时间顺序。
 - `lora/data/` 保存 Answer-only LoRA 实际使用的训练、验证和测试数据。
 - `lora/Qwen3-1.7B/` 和 `lora/Qwen3-8B/` 分别保存 Student、Teacher 的 LoRA 训练配置、启动脚本和合并配置。
 - `lora/finqa_lora_eval.py` 为 LoRA 外部评测脚本。
@@ -106,6 +129,8 @@ FinQA-On-Policy-Distillation/
 LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher-topk32-opd-baseline/lora/)。
 
 OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./01-answer-only-teacher-topk32-opd-baseline/opd/)。
+
+三字段数据构造、LoRA 配置和外部测试结果见 [Brief–Program–Answer LoRA 目录](./02-structured-three-field-teacher-only-opd/lora/)。
 
 ## 数据
 
