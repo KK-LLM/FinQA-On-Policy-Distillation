@@ -193,6 +193,8 @@ bash /root/scripts/test.sh
 
 训练结束后，在 `test.sh` 的模型合并区块中设置 `RUN_NAME` 和 `CKPT_STEP`，再使用 VERL FSDP merger 将对应 Actor checkpoint 合并为完整 Hugging Face 模型。外部测试使用的 OPD-910、OPD-1001 和 OPD-1092 均经过该合并流程。
 
+合并后的 OPD 模型与 Answer-only LoRA 模型统一使用实验根目录下的 [`finqa_answer_only_eval.py`](../finqa_answer_only_eval.py) 进行外部评测。
+
 ## 训练过程
 
 训练完整执行至 `1092/1092` step。
@@ -211,7 +213,7 @@ Distillation loss 在前四个 epoch 下降较快，之后逐渐进入平台期�
 
 ## 外部测试结果
 
-外部评测使用 FinQA test，共 1,147 道题，每道题采样 8 次，共生成 9,176 个回答。`avg@8` 表示全部生成的正确比例，`best@8` 表示至少有一次回答正确的问题比例。
+外部评测与 Answer-only LoRA 使用同一评测脚本、同一 Answer-only System Prompt、相同的 `temperature=0.5` 和 K=8 测试口径。FinQA test 共 1,147 道题，每道题采样 8 次，共生成 9,176 个回答。`avg@8` 表示全部生成的正确比例，`best@8` 表示至少有一次回答正确的问题比例。
 
 | 模型 | 与本轮 OPD 的关系 | `avg@8` | `best@8` |
 |---|---|---:|---:|
@@ -280,6 +282,7 @@ opd/
 
 - `data/` 保存本轮 VERL 实际读取的训练集和验证集；
 - `scripts/` 保存真实训练入口、启动器和 VERL OPD 命令，其中 `finqa_reward.py` 负责 FinQA 答案判分和训练诊断，不参与本轮参数优化；
+- LoRA 与 OPD 共用的 [`finqa_answer_only_eval.py`](../finqa_answer_only_eval.py) 位于上一级实验目录，用于保持两阶段的 Answer-only 外部评测口径一致；
 - 本 README 汇总实际训练配置、训练过程、外部测试结果和下一轮优化依据。
 
 [返回项目首页](../../../README.md)

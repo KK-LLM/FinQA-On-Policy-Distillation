@@ -72,12 +72,11 @@ lora/
 │   ├── merge_config.yaml
 │   ├── nohup_lora_train.sh
 │   └── train_mannual.sh
-├── Qwen3-8B/
-│   ├── lora_sft.yaml
-│   ├── merge_config.yaml
-│   ├── nohup_lora_train.sh
-│   └── train_mannual.sh
-└── finqa_lora_eval.py
+└── Qwen3-8B/
+    ├── lora_sft.yaml
+    ├── merge_config.yaml
+    ├── nohup_lora_train.sh
+    └── train_mannual.sh
 ```
 
 训练配置中的 `dataset_dir` 固定为 `/root/lora_config`。在原始容器布局中，相关文件按以下方式放置：
@@ -125,7 +124,7 @@ checkpoint-800 的 `avg@8` 低于 checkpoint-1400，`best@8` 高于 checkpoint-1
 
 ## 外部评测
 
-[`finqa_lora_eval.py`](./finqa_lora_eval.py) 通过 OpenAI-compatible Chat Completions 接口评测合并后的模型。脚本默认连接 `http://127.0.0.1:6006/v1/chat/completions`，运行前需要先启动对应模型的推理服务，并根据待测模型调整脚本顶部的 `MODEL_ID`、`TEST_FILE` 和 `OUTPUT_DIR`。
+实验根目录下的 [`finqa_answer_only_eval.py`](../finqa_answer_only_eval.py) 由本轮 LoRA 与后续 OPD 共用，通过 OpenAI-compatible Chat Completions 接口评测合并后的模型。两阶段使用相同的 Answer-only System Prompt、`temperature=0.5` 和 K=8 测试口径。脚本默认连接 `http://127.0.0.1:6006/v1/chat/completions`，运行前需要先启动对应模型的推理服务，并根据待测模型调整脚本顶部的 `MODEL_ID`、`TEST_FILE` 和 `OUTPUT_DIR`。
 
 主要评测参数如下：
 
@@ -144,7 +143,7 @@ checkpoint-800 的 `avg@8` 低于 checkpoint-1400，`best@8` 高于 checkpoint-1
 运行评测：
 
 ```bash
-python3 finqa_lora_eval.py
+python3 ../finqa_answer_only_eval.py
 ```
 
 评测同时输出两项指标：

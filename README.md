@@ -131,11 +131,11 @@ FinQA-On-Policy-Distillation/
 │   ├── dev.json
 │   └── test.json
 ├── 01-answer-only-teacher-topk32-opd-baseline/
+│   ├── finqa_answer_only_eval.py
 │   ├── lora/
 │   │   ├── Qwen3-1.7B/
 │   │   ├── Qwen3-8B/
 │   │   ├── data/
-│   │   ├── finqa_lora_eval.py
 │   │   └── README.md
 │   └── opd/
 │       ├── data/
@@ -159,7 +159,7 @@ FinQA-On-Policy-Distillation/
 - 编号实验目录直接保存每轮实验的 LoRA、OPD 配置与结果；编号按照方法演进和展示逻辑排列，不代表实际执行时间顺序。
 - `lora/data/` 保存 Answer-only LoRA 实际使用的训练、验证和测试数据。
 - `lora/Qwen3-1.7B/` 和 `lora/Qwen3-8B/` 分别保存 Student、Teacher 的 LoRA 训练配置、启动脚本和合并配置。
-- `lora/finqa_lora_eval.py` 为 LoRA 外部评测脚本。
+- 第一轮实验根目录下的 `finqa_answer_only_eval.py` 由 Answer-only LoRA 与 OPD 共用，以保持外部测试实现和评测口径一致。
 - `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
 - `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
 - 第二轮实验根目录下的 `finqa_three_field_eval.py` 和 `prompt.py` 由三字段 LoRA 与 OPD 共用，以保持外部测试实现和 Prompt 一致。
