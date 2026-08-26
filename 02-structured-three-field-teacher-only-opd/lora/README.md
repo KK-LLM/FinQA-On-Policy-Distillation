@@ -116,6 +116,8 @@ Qwen3-1.7B 和 Qwen3-8B 使用同一套三字段训练数据、System Prompt 和
 
 ### 外部测试结果
 
+本轮 LoRA 与后续 OPD 统一使用实验根目录下的 [`finqa_three_field_eval.py`](../finqa_three_field_eval.py) 进行外部测试，并调用 [`prompt.py`](../prompt.py) 中的三字段 System Prompt，以保持两阶段的评测实现和 Prompt 一致。
+
 | 模型 | `avg@8` | `best@8` | `avg@8` 提升 | `best@8` 提升 |
 |---|---:|---:|---:|---:|
 | Qwen3-1.7B Base | 8.59% | 14.04% | — | — |
@@ -149,21 +151,18 @@ lora/
 │   ├── merge_config.yaml
 │   ├── nohup_lora_train.sh
 │   └── train_mannual.sh
-├── Qwen3-8B/
-│   ├── lora_sft.yaml
-│   ├── merge_config.yaml
-│   ├── nohup_lora_train.sh
-│   └── train_mannual.sh
-├── finqa_three_field_eval.py
-└── prompt.py
+└── Qwen3-8B/
+    ├── lora_sft.yaml
+    ├── merge_config.yaml
+    ├── nohup_lora_train.sh
+    └── train_mannual.sh
 ```
 
 - [`finqa_brief_program_train.json`](./data/finqa_brief_program_train.json) 是 LLaMAFactory 实际读取的三字段训练集；
 - [`finqa_three_field_prompt_64tokens_0813.txt`](./data/finqa_three_field_prompt_64tokens_0813.txt) 是固化在训练数据中的 System Prompt；
 - [`dataset_info.json`](./data/dataset_info.json) 负责注册 Alpaca 字段；
 - `Qwen3-1.7B/` 和 `Qwen3-8B/` 保存两个模型的训练、合并和启动配置；
-- [`finqa_three_field_eval.py`](./finqa_three_field_eval.py) 用于三字段 LoRA 的外部评测；
-- [`prompt.py`](./prompt.py) 保存评测时调用的三字段 System Prompt，与训练数据中固化的 Prompt 保持一致。
+- LoRA 与 OPD 共用的 [`finqa_three_field_eval.py`](../finqa_three_field_eval.py) 和 [`prompt.py`](../prompt.py) 位于上一级实验目录，分别用于 FinQA K=8 外部评测和提供三字段 System Prompt。
 
 ## 与 OPD 的衔接
 

@@ -142,17 +142,16 @@ FinQA-On-Policy-Distillation/
 │       ├── scripts/
 │       └── README.md
 └── 02-structured-three-field-teacher-only-opd/
+    ├── finqa_three_field_eval.py
+    ├── prompt.py
     ├── lora/
     │   ├── Qwen3-1.7B/
     │   ├── Qwen3-8B/
     │   ├── data/
-    │   ├── finqa_three_field_eval.py
-    │   ├── prompt.py
     │   └── README.md
     └── opd/
         ├── data/
         ├── scripts/
-        ├── finqa_three_field_test_eval_multirun.py
         └── README.md
 ```
 
@@ -163,6 +162,7 @@ FinQA-On-Policy-Distillation/
 - `lora/finqa_lora_eval.py` 为 LoRA 外部评测脚本。
 - `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
 - `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
+- 第二轮实验根目录下的 `finqa_three_field_eval.py` 和 `prompt.py` 由三字段 LoRA 与 OPD 共用，以保持外部测试实现和 Prompt 一致。
 
 LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher-topk32-opd-baseline/lora/)。
 

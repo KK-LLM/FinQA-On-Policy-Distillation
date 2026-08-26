@@ -192,7 +192,7 @@ test.sh
 - [`run_OPD_FinQA_1P7B_from_8B_scheme_a.sh`](./scripts/run_OPD_FinQA_1P7B_from_8B_scheme_a.sh) 负责模型、数据、训练参数、缓存和输出路径；
 - [`on_policy_distillation_gpu.sh`](./scripts/on_policy_distillation_gpu.sh) 将环境变量转换为 VERL/Hydra 参数并启动 OPD 训练。
 
-训练产生的 Actor checkpoint 使用 `verl.model_merger` 合并为完整 Hugging Face 模型，再使用 [`finqa_three_field_test_eval_multirun.py`](./finqa_three_field_test_eval_multirun.py) 进行外部 K=8 评测。
+训练产生的 Actor checkpoint 使用 `verl.model_merger` 合并为完整 Hugging Face 模型，再使用实验根目录下的 [`finqa_three_field_eval.py`](../finqa_three_field_eval.py) 和 [`prompt.py`](../prompt.py) 进行外部 K=8 评测。该评测实现与三字段 LoRA 阶段保持一致。
 
 ## 训练过程
 
@@ -204,7 +204,7 @@ test.sh
 
 ## 外部测试结果
 
-外部评测使用 FinQA test，共 1,147 道题，每道题采样 8 次，每个 checkpoint 共生成 9,176 个响应。三组评测的请求错误均为 0。`avg@8` 表示全部生成结果的正确比例，`best@8` 表示至少有 1 次回答正确的题目比例。
+外部评测与三字段 LoRA 使用同一评测脚本、同一 System Prompt 和相同的 K=8 测试口径。FinQA test 共 1,147 道题，每道题采样 8 次，每个 checkpoint 共生成 9,176 个响应。三组评测的请求错误均为 0。`avg@8` 表示全部生成结果的正确比例，`best@8` 表示至少有 1 次回答正确的题目比例。
 
 | 模型 | `avg@8` | `best@8` |
 |---|---:|---:|
@@ -245,18 +245,17 @@ opd/
 ├── data/
 │   ├── train_opd_scheme_a.parquet
 │   └── valid_opd_scheme_a.parquet
-├── scripts/
-│   ├── finqa_three_field_core.py
-│   ├── finqa_three_field_reward.py
-│   ├── on_policy_distillation_gpu.sh
-│   ├── run_OPD_FinQA_1P7B_from_8B_scheme_a.sh
-│   └── test.sh
-└── finqa_three_field_test_eval_multirun.py
+└── scripts/
+    ├── finqa_three_field_core.py
+    ├── finqa_three_field_reward.py
+    ├── on_policy_distillation_gpu.sh
+    ├── run_OPD_FinQA_1P7B_from_8B_scheme_a.sh
+    └── test.sh
 ```
 
 - `data/` 保存本轮 VERL 实际读取的训练集和内部验证集；
 - `scripts/` 保存实际训练入口、VERL OPD 命令和三字段 Reward 逻辑；
-- [`finqa_three_field_test_eval_multirun.py`](./finqa_three_field_test_eval_multirun.py) 用于合并后模型的 FinQA K=8 外部评测；
+- LoRA 与 OPD 共用的 [`finqa_three_field_eval.py`](../finqa_three_field_eval.py) 和 [`prompt.py`](../prompt.py) 位于上一级实验目录，用于保持两阶段的外部评测口径一致；
 - 本 README 汇总数据筛选、训练配置、外部测试结果和后续优化依据。
 
 [返回项目首页](../../README.md)
