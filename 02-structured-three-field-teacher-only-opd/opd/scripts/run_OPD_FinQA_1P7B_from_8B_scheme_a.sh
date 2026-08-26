@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+MODEL_ROOT=${MODEL_ROOT:-/root/model}
+DATA_ROOT=${DATA_ROOT:-/root/data}
+TRAIN_OUTPUT_ROOT=${TRAIN_OUTPUT_ROOT:-/root/train_output}
+CACHE_ROOT=${CACHE_ROOT:-/root/autodl-tmp/opd_finqa_bpa/cache}
+
+export STUDENT_MODEL_PATH=${STUDENT_MODEL_PATH:-"${MODEL_ROOT}/Qwen3-1.7B-LoRA-BPA-0813-ckp-3400"}
+export TEACHER_MODEL_PATH=${TEACHER_MODEL_PATH:-"${MODEL_ROOT}/Qwen3-8B-LoRA-BPA-0813-ckp-15550"}
+export TRAIN_FILE=${TRAIN_FILE:-"${DATA_ROOT}/train_opd_scheme_a.parquet"}
+export VAL_FILE=${VAL_FILE:-"${DATA_ROOT}/valid_opd_scheme_a.parquet"}
+
+export TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-96}
+export PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-24}
+export PPO_EPOCHS=${PPO_EPOCHS:-1}
+export MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-3000}
+export MAX_RESP_LENGTH=${MAX_RESP_LENGTH:-192}
+export ACTOR_LR=${ACTOR_LR:-1e-5}
+export LR_SCHEDULER_TYPE=${LR_SCHEDULER_TYPE:-cosine}
+export LR_WARMUP_STEPS=${LR_WARMUP_STEPS:--1}
+export LR_WARMUP_STEPS_RATIO=${LR_WARMUP_STEPS_RATIO:-0.10}
+export MIN_LR_RATIO=${MIN_LR_RATIO:-0.10}
+export NUM_CYCLES=${NUM_CYCLES:-0.5}
+export N_RESPONSES=${N_RESPONSES:-4}
+export TOTAL_EPOCHS=${TOTAL_EPOCHS:-4}
+export SAVE_FREQ=${SAVE_FREQ:-9}
+export TEST_FREQ=${TEST_FREQ:-9}
+
+export ROLLOUT_TEMPERATURE=${ROLLOUT_TEMPERATURE:-1.0}
+export ROLLOUT_TOP_P=${ROLLOUT_TOP_P:-1.0}
+export ROLLOUT_TOP_K=${ROLLOUT_TOP_K:--1}
+export VAL_N_RESPONSES=${VAL_N_RESPONSES:-1}
+export VAL_TEMPERATURE=${VAL_TEMPERATURE:-0.0}
+export VAL_TOP_P=${VAL_TOP_P:-1.0}
+export VAL_TOP_K=${VAL_TOP_K:--1}
+export VAL_DO_SAMPLE=${VAL_DO_SAMPLE:-False}
+export ACTOR_MAX_TOKENS=${ACTOR_MAX_TOKENS:-49152}
+export ROLLOUT_LOGPROB_MAX_TOKENS=${ROLLOUT_LOGPROB_MAX_TOKENS:-98304}
+export VLLM_MAX_BATCHED_TOKENS=${VLLM_MAX_BATCHED_TOKENS:-131072}
+export TEACHER_MAX_BATCHED_TOKENS=${TEACHER_MAX_BATCHED_TOKENS:-163840}
+export ROLLOUT_MAX_NUM_SEQS=${ROLLOUT_MAX_NUM_SEQS:-128}
+export TEACHER_MAX_NUM_SEQS=${TEACHER_MAX_NUM_SEQS:-224}
+export ROLLOUT_GPU_MEMORY_UTILIZATION=${ROLLOUT_GPU_MEMORY_UTILIZATION:-0.70}
+export TEACHER_GPU_MEMORY_UTILIZATION=${TEACHER_GPU_MEMORY_UTILIZATION:-0.85}
+export DISTILLATION_TOPK=${DISTILLATION_TOPK:-32}
+# 当前关闭任务奖励，VERL 不会使用 distillation_loss_coef，因此注释掉该变量。
+# export DISTILLATION_LOSS_COEF=${DISTILLATION_LOSS_COEF:-0.5}
+
+export PROJECT_NAME=${PROJECT_NAME:-FinQA-BPA-OPD}
+export EXPERIMENT_NAME=${EXPERIMENT_NAME:-finqa_qwen3_1p7b_bpa3400_from_qwen3_8b_bpa15550_scheme_a_opd_topk32_onlyteacher_lr1e5_b96_m24_ppo1_n4_e4}
+export OUTPUT_DIR=${OUTPUT_DIR:-"${TRAIN_OUTPUT_ROOT}/${EXPERIMENT_NAME}"}
+export VALIDATION_DATA_DIR=${VALIDATION_DATA_DIR:-"${OUTPUT_DIR}/validation"}
+export SWANLAB_LOG_DIR=${SWANLAB_LOG_DIR:-"${OUTPUT_DIR}/swanlab"}
+export SWANLAB_MODE=${SWANLAB_MODE:-online}
+export RESUME_MODE=${RESUME_MODE:-auto}
+export MAX_ACTOR_CKPT_TO_KEEP=${MAX_ACTOR_CKPT_TO_KEEP:-10}
+
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0,1,2,3}
+export DATA_SEED=${DATA_SEED:-42}
+CACHE_DIR=${CACHE_DIR:-"${CACHE_ROOT}"}
+export HF_HOME=${HF_HOME:-"${CACHE_DIR}/huggingface"}
+export XDG_CACHE_HOME=${XDG_CACHE_HOME:-"${CACHE_DIR}"}
+export TORCHINDUCTOR_CACHE_DIR=${TORCHINDUCTOR_CACHE_DIR:-"${CACHE_DIR}/torchinductor"}
+export TRITON_CACHE_DIR=${TRITON_CACHE_DIR:-"${CACHE_DIR}/triton"}
+export TMPDIR=${TRAIN_TMPDIR:-"${CACHE_DIR}/tmp"}
+
+[[ -f "${TRAIN_FILE}" ]] || { echo "Missing train Parquet: ${TRAIN_FILE}" >&2; exit 1; }
+[[ -f "${VAL_FILE}" ]] || { echo "Missing valid Parquet: ${VAL_FILE}" >&2; exit 1; }
+[[ -d "${STUDENT_MODEL_PATH}" ]] || { echo "Missing Student: ${STUDENT_MODEL_PATH}" >&2; exit 1; }
+[[ -d "${TEACHER_MODEL_PATH}" ]] || { echo "Missing Teacher: ${TEACHER_MODEL_PATH}" >&2; exit 1; }
+[[ -f "${SCRIPT_DIR}/finqa_three_field_reward.py" ]] || {
+    echo "Missing custom reward: ${SCRIPT_DIR}/finqa_three_field_reward.py" >&2
+    exit 1
+}
+
+mkdir -p "${OUTPUT_DIR}" "${VALIDATION_DATA_DIR}" "${SWANLAB_LOG_DIR}" \
+    "${HF_HOME}" "${TORCHINDUCTOR_CACHE_DIR}" "${TRITON_CACHE_DIR}" "${TMPDIR}"
+
+exec bash "${SCRIPT_DIR}/on_policy_distillation_gpu.sh" "$@"

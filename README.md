@@ -88,6 +88,39 @@ Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套�
 
 表中模型结果依次为 `avg@8 / best@8`。三字段 LoRA 的 Student 和 Teacher 均取得了更高的外部测试结果，其中 Student 的提升更加明显，为后续 OPD 提供了更强的初始化模型。
 
+## Brief–Program–Answer Teacher-only OPD
+
+本轮以三字段 LoRA 模型为起点：Student 使用 Qwen3-1.7B LoRA checkpoint-3400，Teacher 使用 Qwen3-8B LoRA checkpoint-15550。Student 在线生成 `Brief–Program–Answer` 响应，Teacher 在 Student 实际访问的 token 位置提供 Top-32 概率分布，通过 Forward KL 直接更新 Student。
+
+### 核心配置
+
+- OPD 训练框架：VERL 0.8.0
+- 训练数据：3,515 条
+- 内部验证数据：159 条
+- 每条输入生成 4 个 response
+- 蒸馏目标：Teacher TopK32 Forward KL
+- Task Reward 参与损失：否
+- Policy Gradient：否
+- 训练预算：4 epoch，共 144 step
+- 外部评测：FinQA test，每道题采样 8 次，共 1,147 道题
+
+### 外部测试结果
+
+| 模型 | `avg@8` | `best@8` |
+|---|---:|---:|
+| OPD-81 | 43.36% | 60.33% |
+| OPD-117 | **43.70%** | 60.94% |
+| **OPD-144** | **43.70%** | **61.55%** |
+
+后两个 checkpoint 的 `avg@8` 均达到本轮最高值 43.70%；其中最后一个 checkpoint 的 `best@8` 进一步提高至 61.55%，也是本轮最高结果。因此，本轮 Teacher-only OPD 采用最后一个 checkpoint 作为代表模型。
+
+| 指标 | 上一轮 Answer-only OPD | 三字段 LoRA Student | 本轮 Teacher-only OPD | 相比上一轮 OPD | 相比三字段 LoRA |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| `avg@8` | 23.89% | 41.26% | **43.70%** | **+19.81 个百分点** | **+2.44 个百分点** |
+| `best@8` | 36.44% | 57.98% | **61.55%** | **+25.11 个百分点** | **+3.57 个百分点** |
+
+相比上一轮 Answer-only OPD，本轮完整方案的 `avg@8` 和 `best@8` 分别提高了 19.81 和 25.11 个百分点。在三字段 LoRA Student 的基础上，Teacher-only OPD 又带来了 2.44 和 3.57 个百分点的进一步提升。
+
 ## 目录结构
 
 ```text
@@ -109,12 +142,17 @@ FinQA-On-Policy-Distillation/
 │       ├── scripts/
 │       └── README.md
 └── 02-structured-three-field-teacher-only-opd/
-    └── lora/
-        ├── Qwen3-1.7B/
-        ├── Qwen3-8B/
+    ├── lora/
+    │   ├── Qwen3-1.7B/
+    │   ├── Qwen3-8B/
+    │   ├── data/
+    │   ├── finqa_three_field_eval.py
+    │   ├── prompt.py
+    │   └── README.md
+    └── opd/
         ├── data/
-        ├── finqa_three_field_eval.py
-        ├── prompt.py
+        ├── scripts/
+        ├── finqa_three_field_test_eval_multirun.py
         └── README.md
 ```
 
@@ -131,6 +169,8 @@ LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher
 OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./01-answer-only-teacher-topk32-opd-baseline/opd/)。
 
 三字段数据构造、LoRA 配置和外部测试结果见 [Brief–Program–Answer LoRA 目录](./02-structured-three-field-teacher-only-opd/lora/)。
+
+三字段 OPD 的数据筛选、训练配置和外部测试结果见 [Brief–Program–Answer Teacher-only OPD 目录](./02-structured-three-field-teacher-only-opd/opd/)。
 
 ## 数据
 
