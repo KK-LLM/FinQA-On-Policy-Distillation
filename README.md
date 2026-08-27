@@ -121,6 +121,19 @@ Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套�
 
 相比上一轮 Answer-only OPD，本轮完整方案的 `avg@8` 和 `best@8` 分别提高了 19.81 和 25.11 个百分点。在三字段 LoRA Student 的基础上，Teacher-only OPD 又带来了 2.44 和 3.57 个百分点的进一步提升。
 
+## 三字段 OPD 目标函数与蒸馏参数优化
+
+Teacher-only TopK32 OPD 验证了三字段蒸馏的有效性，但外部测试结果在训练后期逐渐进入平台。本轮在相同 Student、Teacher 和 OPD 数据上继续优化训练目标与蒸馏参数：先加入 Task Reward，再提高蒸馏系数，最后将 Teacher 候选 token 数量从 32 缩小到 16。
+
+| 阶段 | Task Reward | 蒸馏系数 | Teacher TopK | 代表性 `avg@8` |
+|:---|:---:|:---:|:---:|---:|
+| Teacher-only OPD | 关闭 | — | 32 | 43.70% |
+| 加入 Task Reward | 开启 | 0.5 | 32 | 44.75% |
+| 提高蒸馏系数 | 开启 | 1.0 | 32 | 45.12% |
+| 缩小候选集 | 开启 | 1.0 | 16 | **45.31%** |
+
+三步优化将代表性 `avg@8` 从 43.70% 提高到 45.31%，累计提升 1.61 个百分点。TopK16 最优结果的三次复测均值为 45.27%，与 TopK32 基本处于同一水平；平均单步耗时则从 175.67 秒降至 133.36 秒，下降 24.08%。因此，后续实验优先采用 Task Reward、`coef=1.0` 和 Teacher TopK16。
+
 ## 目录结构
 
 ```text
@@ -141,7 +154,7 @@ FinQA-On-Policy-Distillation/
 │       ├── data/
 │       ├── scripts/
 │       └── README.md
-└── 02-structured-three-field-teacher-only-opd/
+├── 02-structured-three-field-teacher-only-opd/
     ├── finqa_three_field_eval.py
     ├── prompt.py
     ├── lora/
@@ -153,6 +166,13 @@ FinQA-On-Policy-Distillation/
         ├── data/
         ├── scripts/
         └── README.md
+└── 03-structured-three-field-opd-objective-tuning/
+    ├── README.md
+    ├── finqa_three_field_eval.py
+    ├── prompt.py
+    └── opd/
+        ├── data/
+        └── scripts/
 ```
 
 - `data/` 保存 FinQA 官方数据。
@@ -163,6 +183,7 @@ FinQA-On-Policy-Distillation/
 - `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
 - `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
 - 第二轮实验根目录下的 `finqa_three_field_eval.py` 和 `prompt.py` 由三字段 LoRA 与 OPD 共用，以保持外部测试实现和 Prompt 一致。
+- 第三轮实验集中记录 Task Reward、蒸馏系数和 Teacher TopK 的连续优化，评测结果与训练效率对比统一写在实验根目录的 README 中。
 
 LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher-topk32-opd-baseline/lora/)。
 
@@ -171,6 +192,8 @@ OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD �
 三字段数据构造、LoRA 配置和外部测试结果见 [Brief–Program–Answer LoRA 目录](./02-structured-three-field-teacher-only-opd/lora/)。
 
 三字段 OPD 的数据筛选、训练配置和外部测试结果见 [Brief–Program–Answer Teacher-only OPD 目录](./02-structured-three-field-teacher-only-opd/opd/)。
+
+Task Reward、蒸馏系数和 Teacher TopK 的连续优化过程见 [三字段 OPD 目标函数与蒸馏参数优化目录](./03-structured-three-field-opd-objective-tuning/)。
 
 ## 数据
 
