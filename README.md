@@ -1,98 +1,88 @@
 # FinQA On-Policy Distillation
 
-本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 开始，在验证蒸馏有效性的同时，也暴露出 Student 和 Teacher 的 FinQA 基础能力不足，因此后续采用「先 LoRA、再 OPD」的训练方式。
+本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 出发，依次完成 Answer-only LoRA 与 OPD、Brief–Program–Answer 三字段 LoRA 与 Teacher-only OPD，并进一步引入 Task Reward，优化蒸馏系数和 Teacher TopK。
+
+---
 
 ## 前置探索：Base Model 直接 OPD
 
-最初的实验没有对 Qwen3-1.7B 和 Qwen3-8B 进行 FinQA LoRA 训练，而是直接以原始 Qwen3-1.7B 作为 Student、原始 Qwen3-8B 作为 Teacher 进行 OPD。
+最初的实验没有对 Qwen3-1.7B 和 Qwen3-8B 进行 FinQA LoRA 训练，而是直接以原始 Qwen3-1.7B 作为 Student、原始 Qwen3-8B 作为 Teacher 进行 Answer-only OPD。
 
-### 核心配置
+### 核心配置与外部测试结果
 
 - Student：Qwen3-1.7B Base
 - Teacher：Qwen3-8B Base
 - 输出模式：非思考模式，仅输出最终答案
 - 外部评测：FinQA test，每道题采样 8 次，共 1,147 道题
 
-`avg@8` 和 `best@8` 来自外部测试阶段的 8 次采样。
-
-### 外部测试结果
-
 | 模型 | `avg@8` | `best@8` |
-|---|---:|---:|
+|:---|---:|---:|
 | Qwen3-1.7B Base | 3.48% | 4.97% |
 | Qwen3-8B Base | 9.51% | 12.73% |
-| Qwen3-1.7B OPD-392 | 4.98% | 9.54% |
+| Qwen3-1.7B OPD-392 | **4.98%** | **9.54%** |
 
-相较于原始 Qwen3-1.7B，OPD-392 的 `avg@8` 从 3.48% 提升至 4.98%，绝对提升 1.50 个百分点，相对提升约 43.1%；`best@8` 从 4.97% 提升至 9.54%，绝对提升 4.57 个百分点，相对提升约 92.0%。
+相较于原始 Qwen3-1.7B，OPD-392 的 `avg@8` 提高 1.50 个百分点，`best@8` 提高 4.57 个百分点。Base Model 直接 OPD 已经能够产生相对增益，但训练后的绝对正确率仍然较低；Qwen3-8B Base 在相同测试中的 `avg@8` 也只有 9.51%，Teacher 的任务能力同样有限。
 
-这组结果说明，Base Model 直接 OPD 已经能够产生明显的相对增益，但训练后的绝对正确率仍然较低。原始 Qwen3-8B 在相同测试中的 `avg@8` 也只有 9.51%，表明 Teacher 在当前任务和输出模式下的能力同样有限。
+FinQA 需要理解长篇金融材料并完成多步计算，而 Answer-only 输出只能传递最终答案，无法直接监督中间计算过程。因此，后续训练先通过 LoRA 提高 Student 和 Teacher 的 FinQA 基础能力，再进行 OPD。
 
-FinQA 需要理解长篇金融材料并完成多步计算，而本轮实验采用非思考模式，只蒸馏最终答案。综合这些现象推测，任务本身的推理难度、8B Teacher 的能力上限，以及 Answer-only 输出无法直接传递中间计算过程，共同限制了直接 OPD 的最终效果。这是基于实验结果的分析判断，不能作为对单一因素的严格因果归因。
+---
 
-基于这次探索，后续训练先通过 LoRA 让 Student 和 Teacher 学习 FinQA 的任务形式与答案分布，再进行 OPD。该次探索未保留完整的训练中间文件，因此这里只记录实际保留下来的关键配置和最终评测结果，不提供对应的复现实验目录。
+## 实验 1：Answer-only Teacher TopK32 OPD
 
-## Answer-only LoRA + OPD：Teacher TopK32 Baseline
+本轮先对 Qwen3-1.7B 和 Qwen3-8B 进行 Answer-only LoRA，再以 LoRA 模型作为 Student 和 Teacher 开展 Teacher TopK32 OPD。
 
-在直接 OPD 的基础上，Qwen3-1.7B 和 Qwen3-8B 分别进行了 Answer-only LoRA 训练。本轮 OPD 使用 Qwen3-1.7B LoRA checkpoint-1400 初始化 Student，使用 Qwen3-8B LoRA checkpoint-5750 作为 Teacher。
+### LoRA 起点
 
-### 核心配置
+| 角色 | 模型 | `avg@8` | `best@8` |
+|:---|:---|---:|---:|
+| Student | Qwen3-1.7B Answer-only LoRA | 21.17% | 34.44% |
+| Teacher | Qwen3-8B Answer-only LoRA | 59.20% | 63.73% |
 
-- Student：Qwen3-1.7B Answer-only LoRA checkpoint-1400
-- Teacher：Qwen3-8B Answer-only LoRA checkpoint-5750
-- LoRA 训练框架：LLaMAFactory
-- OPD 训练框架：VERL
+Answer-only LoRA 将 Student 的 `avg@8` 从 3.48% 提高到 21.17%，为后续 OPD 提供了更强的任务起点。
+
+### OPD 配置与结果
+
 - 输出格式：Answer-only
 - 蒸馏目标：Teacher-token TopK32 Forward KL
-- 任务奖励参与损失：否
+- Task Reward 参与损失：否
 - Policy Gradient：否
-- 外部评测：FinQA test，每道题采样 8 次，共 1,147 道题
+- 外部评测：FinQA test，每道题采样 8 次
 
-### 外部测试结果
-
-| 模型 | `avg@8` | `best@8` |
-|---|---:|---:|
-| LoRA checkpoint-1400 | 21.17% | 34.44% |
-| LoRA checkpoint-800 | 20.73% | 35.92% |
-| OPD-910 | 23.61% | **36.79%** |
-| OPD-1001 | 23.56% | 36.62% |
-| OPD-1092 | **23.89%** | 36.44% |
-
-三个 OPD checkpoint 的 `avg@8` 均在 23.56%–23.89% 之间，`best@8` 均在 36.44%–36.79% 之间。其中，OPD-1092 取得最高 `avg@8`，OPD-910 取得最高 `best@8`。
+| 对比对象 | `avg@8` | `best@8` |
+|:---|---:|---:|
+| OPD 初始化模型 | 21.17% | 34.44% |
+| 同口径 LoRA `best@8` 参考 | 20.73% | 35.92% |
+| 本轮 OPD（最高 `avg@8`） | **23.89%** | 36.44% |
+| 本轮 OPD（最高 `best@8`） | 23.61% | **36.79%** |
 
 ### 结果分析
 
-LoRA checkpoint-1400 在 OPD 前已经达到 21.17% `avg@8` 和 34.44% `best@8`，相较于原始 Qwen3-1.7B 的 3.48% 和 4.97%，为后续蒸馏提供了明显更强的任务起点。
+本轮 Answer-only OPD 的最高 `avg@8` 为 23.89%，相对初始化模型提高 2.72 个百分点；最高 `best@8` 为 36.79%，相对同口径 LoRA 参考结果提高 0.87 个百分点。
 
-相较于实际用于初始化 Student 的 LoRA checkpoint-1400，OPD-1092 的 `avg@8` 提升 2.72 个百分点，`best@8` 提升 2.00 个百分点，说明本轮 OPD 训练能够继续带来增益。
+OPD 已经产生了有效提升，但整体收益仍然有限。主要问题是 Answer-only 输出缺少 Brief 和 Program，Teacher 只能围绕较短的最终答案分布进行蒸馏，难以向 Student 传递完整的问题理解和计算过程。这一结果推动了后续 Brief–Program–Answer 三字段数据与模型的构造。
 
-LoRA checkpoint-800 在同口径测试中达到 20.73% `avg@8` 和 35.92% `best@8`。与 checkpoint-1400 相比，它的 `avg@8` 低 0.44 个百分点，`best@8` 高 1.48 个百分点，因此不能将其简单视为两个指标都更强的 LoRA checkpoint。
+具体训练保存点及完整测试结果见 [实验 1 README](./01-answer-only-teacher-topk32-opd-baseline/README.md)。
 
-与 checkpoint-800 相比，OPD-1092 的 `avg@8` 提升 3.16 个百分点，`best@8` 提升 0.52 个百分点。若分别取本轮最高值，`avg@8` 和 `best@8` 的提升为 3.16 和 0.87 个百分点。
+---
 
-因此，本轮实验被保留为「有效但收益有限的失败基线」：训练流程已经产生可测量的提升，但相较于 `best@8` 更高的 LoRA checkpoint-800，OPD 在 `best@8` 上的额外收益仍然有限。
+## 实验 2：Brief–Program–Answer Teacher-only OPD
 
-上述结果只能说明这套完整训练配置的最终表现，不能将收益或局限严格归因于某一个超参数。LoRA checkpoint-800 也不是本轮 OPD 的实际初始化模型，仅作为同口径外部测试下的性能参照。
+实验 1 的主要限制是只监督最终答案。本轮将输出扩展为 Brief–Program–Answer 三字段：Brief 说明问题目标、关键数值和计算关系，Program 给出可执行的 FinQA Program，Answer 保存归一化结果。
 
-## Brief–Program–Answer 三字段 LoRA
+### 三字段数据与 LoRA
 
-Answer-only LoRA 只监督最终答案，无法直接约束问题理解和计算过程。本轮将监督输出扩展为 `Brief–Program–Answer` 三字段：Brief 说明问题目标、关键数值及计算关系，Program 给出可执行的 FinQA Program，Answer 保存归一化结果。
-
-Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套三字段训练数据、System Prompt 和 `qwen3_nothink` 模板。最终训练集包含 6,240 条记录，所有 Program 均通过严格解析和执行校验，Program 执行结果与标准答案一致，Brief 均不超过 64 Qwen3 tokens。
-
-### 外部测试结果
+Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套三字段训练数据、System Prompt 和 `qwen3_nothink` 模板。最终训练集包含 6,240 条记录，所有 Program 均通过解析和执行校验，Program 执行结果与标准答案一致，Brief 均不超过 64 Qwen3 tokens。
 
 | 角色 | Answer-only LoRA | 三字段 LoRA | `avg@8` 变化 | `best@8` 变化 |
-|---|---:|---:|---:|---:|
+|:---|---:|---:|---:|---:|
 | Student | 21.17% / 34.44% | **41.26% / 57.98%** | **+20.09 个百分点** | **+23.54 个百分点** |
 | Teacher | 59.20% / 63.73% | **64.71% / 72.71%** | **+5.51 个百分点** | **+8.98 个百分点** |
 
-表中模型结果依次为 `avg@8 / best@8`。三字段 LoRA 的 Student 和 Teacher 均取得了更高的外部测试结果，其中 Student 的提升更加明显，为后续 OPD 提供了更强的初始化模型。
+表中模型结果依次为 `avg@8 / best@8`。三字段 LoRA 同时提高了 Student 和 Teacher 的外部测试结果，其中 Student 的提升更加明显。
 
-## Brief–Program–Answer Teacher-only OPD
+### Teacher-only OPD
 
-本轮以三字段 LoRA 模型为起点：Student 使用 Qwen3-1.7B LoRA checkpoint-3400，Teacher 使用 Qwen3-8B LoRA checkpoint-15550。Student 在线生成 `Brief–Program–Answer` 响应，Teacher 在 Student 实际访问的 token 位置提供 Top-32 概率分布，通过 Forward KL 直接更新 Student。
-
-### 核心配置
+Student 和 Teacher 分别使用 Qwen3-1.7B 与 Qwen3-8B 三字段 LoRA。Student 在线生成 Brief–Program–Answer 响应，Teacher 在 Student 实际访问的 token 位置提供 TopK32 概率分布，通过 Forward KL 更新 Student。
 
 - OPD 训练框架：VERL 0.8.0
 - 训练数据：3,515 条
@@ -101,38 +91,91 @@ Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，使用同一套�
 - 蒸馏目标：Teacher TopK32 Forward KL
 - Task Reward 参与损失：否
 - Policy Gradient：否
-- 训练预算：4 epoch，共 144 step
-- 外部评测：FinQA test，每道题采样 8 次，共 1,147 道题
+- 外部评测：FinQA test，每道题采样 8 次
 
-### 外部测试结果
-
-| 模型 | `avg@8` | `best@8` |
-|---|---:|---:|
-| OPD-81 | 43.36% | 60.33% |
-| OPD-117 | **43.70%** | 60.94% |
-| **OPD-144** | **43.70%** | **61.55%** |
-
-后两个 checkpoint 的 `avg@8` 均达到本轮最高值 43.70%；其中最后一个 checkpoint 的 `best@8` 进一步提高至 61.55%，也是本轮最高结果。因此，本轮 Teacher-only OPD 采用最后一个 checkpoint 作为代表模型。
+### 结果分析
 
 | 指标 | 上一轮 Answer-only OPD | 三字段 LoRA Student | 本轮 Teacher-only OPD | 相比上一轮 OPD | 相比三字段 LoRA |
-|:---:|:---:|:---:|:---:|:---:|:---:|
+|:---:|---:|---:|---:|---:|---:|
 | `avg@8` | 23.89% | 41.26% | **43.70%** | **+19.81 个百分点** | **+2.44 个百分点** |
 | `best@8` | 36.44% | 57.98% | **61.55%** | **+25.11 个百分点** | **+3.57 个百分点** |
 
-相比上一轮 Answer-only OPD，本轮完整方案的 `avg@8` 和 `best@8` 分别提高了 19.81 和 25.11 个百分点。在三字段 LoRA Student 的基础上，Teacher-only OPD 又带来了 2.44 和 3.57 个百分点的进一步提升。
+Brief–Program–Answer 三字段 LoRA 形成了明显更强的 Student 和 Teacher。在三字段 LoRA Student 的基础上，Teacher-only OPD 又将 `avg@8` 和 `best@8` 分别提高 2.44 和 3.57 个百分点，说明 Teacher 分布监督仍然能够带来进一步提升。
 
-## 三字段 OPD 目标函数与蒸馏参数优化
+具体训练保存点及完整测试结果见 [实验 2 README](./02-structured-three-field-teacher-only-opd/README.md)。
 
-Teacher-only TopK32 OPD 验证了三字段蒸馏的有效性，但外部测试结果在训练后期逐渐进入平台。本轮在相同 Student、Teacher 和 OPD 数据上继续优化训练目标与蒸馏参数：先加入 Task Reward，再提高蒸馏系数，最后将 Teacher 候选 token 数量从 32 缩小到 16。
+---
 
-| 阶段 | Task Reward | 蒸馏系数 | Teacher TopK | 代表性 `avg@8` |
-|:---|:---:|:---:|:---:|---:|
-| Teacher-only OPD | 关闭 | — | 32 | 43.70% |
-| 加入 Task Reward | 开启 | 0.5 | 32 | 44.75% |
-| 提高蒸馏系数 | 开启 | 1.0 | 32 | 45.12% |
-| 缩小候选集 | 开启 | 1.0 | 16 | **45.31%** |
+## 实验 3：OPD 目标函数与蒸馏参数优化
 
-三步优化将代表性 `avg@8` 从 43.70% 提高到 45.31%，累计提升 1.61 个百分点。TopK16 最优结果的三次复测均值为 45.27%，与 TopK32 基本处于同一水平；平均单步耗时则从 175.67 秒降至 133.36 秒，下降 24.08%。因此，后续实验优先采用 Task Reward、`coef=1.0` 和 Teacher TopK16。
+Teacher-only TopK32 OPD 将三字段 LoRA Student 的 `avg@8` 从 41.26% 提高到 43.70%，但后期结果逐渐进入平台。本轮保留相同的 Student、Teacher、训练数据和主要配置，先加入 Task Reward，再依次调整蒸馏系数和 Teacher TopK。
+
+### 优化起点与路线
+
+```text
+Teacher-only TopK32：43.70%
+              ↓
+加入 Task Reward，coef=0.5
+              ↓ 开启 Task Reward
+将 coef 从 0.5 提高到 1.0
+              ↓ 开启 Task Reward，coef=1.0
+将 Teacher TopK 从 32 缩小到 16
+```
+
+三轮训练均使用 Qwen3-1.7B 三字段 LoRA checkpoint-3400 初始化 Student，并使用 Qwen3-8B 三字段 LoRA checkpoint-15550 作为 Teacher。每轮训练都从同一个 LoRA Student 开始，逐步继承的是上一阶段已经确定的配置。
+
+### Task Reward
+
+Task Reward 正式参与 Actor 优化后，联合 Loss 为：
+
+```text
+Actor Loss = PG Loss + coef × Distillation Loss
+```
+
+Reward 由四部分组成：
+
+```text
+0.50 × Answer 正确
++ 0.45 × Program 结果正确且与 Answer 一致
++ 0.025 × Brief 合规
++ 0.025 × 三字段格式正确
+```
+
+Answer 和 Program 正确性占主要权重，Brief 与三字段格式用于约束输出结构。
+
+### 配置与外部测试结果
+
+| 阶段 | Task Reward | 蒸馏系数 | Teacher TopK | 代表性 `avg@8` | 相比上一阶段 |
+|:---|:---:|:---:|:---:|---:|---:|
+| Teacher-only 起点 | 关闭 | — | 32 | 43.70% | — |
+| 加入 Task Reward | 开启 | 0.5 | 32 | **44.75%** | **+1.05 个百分点** |
+| 提高蒸馏系数 | 开启 | 1.0 | 32 | **45.12%** | **+0.37 个百分点** |
+| 缩小候选集 | 开启 | 1.0 | 16 | **45.31%** | **+0.19 个百分点** |
+
+加入 Task Reward 后，代表性 `avg@8` 提高 1.05 个百分点，是三步优化中最主要的正确率增量。继续将蒸馏系数从 `0.5` 提高到 `1.0` 后，`avg@8` 再提高 0.37 个百分点。最后将 Teacher TopK 从 32 缩小到 16，最佳单次结果提高 0.19 个百分点，三次复测均值为 45.27%。
+
+### 训练效率
+
+| 配置 | 平均耗时（秒/step） | 中位数（秒/step） |
+|:---|---:|---:|
+| Teacher-only TopK32 | 172.38 | 173.46 |
+| Task Reward、coef=0.5、TopK32 | 169.85 | 170.30 |
+| Task Reward、coef=1.0、TopK32 | 175.67 | 175.82 |
+| Task Reward、coef=1.0、TopK16 | **133.36** | **133.35** |
+
+TopK16 的正确率与 TopK32 基本持平，但平均单步耗时从 175.67 秒降至 133.36 秒，下降 24.08%。TopK16 在保持主要性能的同时提高了训练效率。
+
+### 最终选择
+
+- Task Reward：开启
+- `DISTILLATION_LOSS_COEF=1.0`
+- Teacher TopK：16
+
+三步优化将代表性 `avg@8` 从 43.70% 提高到 45.31%，累计提升 1.61 个百分点。后续同类训练优先采用 Task Reward、`coef=1.0` 和 Teacher TopK16。
+
+完整配置、各 checkpoint 外部测试结果和重复测试结果见 [实验 3：OPD 目标函数与蒸馏参数优化](./03-structured-three-field-opd-objective-tuning/)。
+
+---
 
 ## 目录结构
 
@@ -144,63 +187,37 @@ FinQA-On-Policy-Distillation/
 │   ├── dev.json
 │   └── test.json
 ├── 01-answer-only-teacher-topk32-opd-baseline/
+│   ├── README.md
 │   ├── finqa_answer_only_eval.py
 │   ├── lora/
-│   │   ├── Qwen3-1.7B/
-│   │   ├── Qwen3-8B/
-│   │   ├── data/
-│   │   └── README.md
 │   └── opd/
-│       ├── data/
-│       ├── scripts/
-│       └── README.md
 ├── 02-structured-three-field-teacher-only-opd/
-    ├── finqa_three_field_eval.py
-    ├── prompt.py
-    ├── lora/
-    │   ├── Qwen3-1.7B/
-    │   ├── Qwen3-8B/
-    │   ├── data/
-    │   └── README.md
-    └── opd/
-        ├── data/
-        ├── scripts/
-        └── README.md
+│   ├── README.md
+│   ├── finqa_three_field_eval.py
+│   ├── prompt.py
+│   ├── lora/
+│   └── opd/
 └── 03-structured-three-field-opd-objective-tuning/
     ├── README.md
     ├── finqa_three_field_eval.py
     ├── prompt.py
     └── opd/
-        ├── data/
-        └── scripts/
 ```
 
 - `data/` 保存 FinQA 官方数据。
-- 编号实验目录直接保存每轮实验的 LoRA、OPD 配置与结果；编号按照方法演进和展示逻辑排列，不代表实际执行时间顺序。
-- `lora/data/` 保存 Answer-only LoRA 实际使用的训练、验证和测试数据。
-- `lora/Qwen3-1.7B/` 和 `lora/Qwen3-8B/` 分别保存 Student、Teacher 的 LoRA 训练配置、启动脚本和合并配置。
-- 第一轮实验根目录下的 `finqa_answer_only_eval.py` 由 Answer-only LoRA 与 OPD 共用，以保持外部测试实现和评测口径一致。
-- `opd/data/` 保存 VERL 实际读取的 OPD 训练集和验证集。
-- `opd/scripts/` 保存 OPD 训练入口、VERL 配置和 FinQA Reward。
-- 第二轮实验根目录下的 `finqa_three_field_eval.py` 和 `prompt.py` 由三字段 LoRA 与 OPD 共用，以保持外部测试实现和 Prompt 一致。
-- 第三轮实验集中记录 Task Reward、蒸馏系数和 Teacher TopK 的连续优化，评测结果与训练效率对比统一写在实验根目录的 README 中。
+- `01-answer-only-teacher-topk32-opd-baseline/` 保存 Answer-only LoRA 与 Teacher TopK32 OPD。
+- `02-structured-three-field-teacher-only-opd/` 保存三字段数据、LoRA 与 Teacher-only OPD。
+- `03-structured-three-field-opd-objective-tuning/` 保存 Task Reward、蒸馏系数与 Teacher TopK 优化。
+- 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用。
 
-LoRA 阶段的具体配置见 [Answer-only LoRA 目录](./01-answer-only-teacher-topk32-opd-baseline/lora/)。
-
-OPD 阶段的数据筛选、训练配置和实验结果见 [Teacher TopK32 OPD 目录](./01-answer-only-teacher-topk32-opd-baseline/opd/)。
-
-三字段数据构造、LoRA 配置和外部测试结果见 [Brief–Program–Answer LoRA 目录](./02-structured-three-field-teacher-only-opd/lora/)。
-
-三字段 OPD 的数据筛选、训练配置和外部测试结果见 [Brief–Program–Answer Teacher-only OPD 目录](./02-structured-three-field-teacher-only-opd/opd/)。
-
-Task Reward、蒸馏系数和 Teacher TopK 的连续优化过程见 [三字段 OPD 目标函数与蒸馏参数优化目录](./03-structured-three-field-opd-objective-tuning/)。
+---
 
 ## 数据
 
 FinQA 官方数据来自 [czyssrs/FinQA](https://github.com/czyssrs/FinQA)。本仓库保留以下 3 个 split：
 
 | 文件 | 样本数 | 用途 |
-|---|---:|---|
+|:---|---:|:---|
 | `data/train.json` | 6,251 | 训练数据来源 |
 | `data/dev.json` | 883 | 验证数据来源 |
 | `data/test.json` | 1,147 | 外部测试数据来源 |
