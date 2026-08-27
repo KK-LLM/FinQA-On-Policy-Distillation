@@ -34,7 +34,7 @@ DATA=(
 )
 
 MODEL=(
-    actor_rollout_ref.model.path="${STUDENT_MODEL_PATH}"。
+    actor_rollout_ref.model.path="${STUDENT_MODEL_PATH}"
     actor_rollout_ref.model.use_remove_padding=True
     # 用反向传播时重算激活换取更低显存占用。
     actor_rollout_ref.model.enable_gradient_checkpointing=True
