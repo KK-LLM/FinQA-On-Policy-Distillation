@@ -165,8 +165,6 @@ lora/
 | `Qwen3-1.7B/`、`Qwen3-8B/` | 两个模型实际使用的 LoRA 训练、权重合并和启动配置。 |
 | [`../finqa_three_field_eval.py`](../finqa_three_field_eval.py)、[`../prompt.py`](../prompt.py) | 本轮 LoRA 外部评测使用的脚本和 Prompt 定义。 |
 
-本目录保存复现配置和冻结数据，不包含完整 Base Model、LoRA checkpoint 或合并后的模型权重。
-
 ## 与 OPD 的衔接
 
 后续 OPD 直接使用上述 Qwen3-1.7B 和 Qwen3-8B Trace-Enhanced BPA LoRA，分别作为 Student 和 Teacher，继续验证这套 `Brief → Program → Answer` 三阶段映射能否改善 Teacher 到 Student 的蒸馏效果。评估 OPD 收益时，以 Student 的同口径 Answer `avg@8=48.812%` 作为直接基线，不把此前数据和 LoRA 阶段的提升计入 OPD 单独贡献。
