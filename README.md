@@ -1,6 +1,6 @@
 # FinQA On-Policy Distillation
 
-本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 出发，依次完成 Answer-only LoRA 与 OPD、Brief–Program–Answer 三字段 LoRA 与 Teacher-only OPD，并进一步引入 Task Reward，优化蒸馏系数和 Teacher TopK。在此基础上，项目继续提高监督数据中的有效计算信息密度，将 Brief 重构为与 Program 和 Answer 严格对应的显式计算轨迹，并重新训练非思考 Student 与 Teacher。
+本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 出发，依次完成 Answer-only LoRA 与 OPD、Brief–Program–Answer 三字段 LoRA 与 Teacher-only OPD，并进一步引入 Task Reward，优化蒸馏系数和 Teacher TopK。在此基础上，项目继续提高监督数据中的有效计算信息密度，将 Brief 重构为与 Program 和 Answer 严格对应的显式计算轨迹，重新训练非思考 Student 与 Teacher，并继续完成 Trace-Enhanced BPA OPD。
 
 ---
 
@@ -177,7 +177,7 @@ TopK16 的正确率与 TopK32 基本持平，但平均单步耗时从 175.67 秒
 
 ---
 
-## 实验 4：Trace-Enhanced BPA LoRA
+## 实验 4：Trace-Enhanced BPA LoRA + OPD
 
 实验 2 的 Teacher-only OPD 将三字段 LoRA Student 的 `avg@8` 从 41.26% 提高到 43.70%；实验 3 继续加入 Task Reward、提高蒸馏系数并缩小 Teacher TopK 后，代表性 `avg@8` 达到 45.31%，但后续增量逐渐收窄。测试中也仍然存在 Brief（计算描述）和 Program 基本正确、最终 Answer 却错误的情况。
 
@@ -203,7 +203,31 @@ TopK16 的正确率与 TopK32 基本持平，但平均单步耗时从 175.67 秒
 
 在训练数据中引入显式计算轨迹后，两个模型的评测结果均较上一阶段有所提升，进一步支持了通过提高计算信息密度、强化三字段映射来增强非思考模型能力的思路。对于 Qwen3-1.7B，Answer `avg@8` 从 Answer-only LoRA 的 21.17% 提高到 48.812%；这一结果也表明，在无法为推理阶段引入额外思考过程的低时延场景中，针对任务结构优化监督数据，能够为小规模非思考模型提供更有效的能力增强路径。
 
-本次 GitHub 更新仅包含 Trace-Enhanced BPA 的 LoRA 阶段，不包含后续 OPD 内容。完整的数据重构方法与 LoRA 评测结果见 [实验 4 LoRA README](./04-executable-brief-task-reward-topk16-opd/lora/README.md)。
+### Trace-Enhanced BPA OPD
+
+本轮以 Qwen3-1.7B 和 Qwen3-8B Trace-Enhanced BPA LoRA 分别作为 Student 和 Teacher，继续使用 Task Reward、`coef=1.0` 和 Teacher TopK16 开展 OPD。训练与评测均保持 `enable_thinking=false`，正式模型的外部测试结果如下：
+
+| 阶段 | Answer `avg@8` | Answer `best@8` | `avg@8` 增益 | `best@8` 增益 |
+|:---|---:|---:|---:|---:|
+| Trace-Enhanced BPA LoRA | 48.812% | 62.424% | — | — |
+| Trace-Enhanced BPA OPD | **56.430%** | **69.834%** | **+7.618 个百分点** | **+7.411 个百分点** |
+
+上一套 Brief–Program–Answer 最终方案的 OPD 增益为 4.05 个百分点，本轮增益达到 7.618 个百分点，约为其 1.88 倍。显式计算轨迹带来的收益并未停留在 LoRA 阶段，提高 Brief 中的计算信息密度并强化 `Brief → Program → Answer` 映射后，Student 在在线蒸馏阶段获得了更大的提升空间。
+
+### Qwen3-1.7B 整体优化结果
+
+| 训练与蒸馏阶段 | 起点 `avg@8` | 终点 `avg@8` | `avg@8` 提升 |
+|---|---:|---:|---:|
+| Base Model 直接 OPD | 3.48% | 4.98% | +1.50 个百分点 |
+| Answer-only LoRA → OPD | 21.17% | 23.89% | +2.72 个百分点 |
+| Brief–Program–Answer LoRA → Teacher-only OPD | 41.26% | 43.70% | +2.44 个百分点 |
+| Brief–Program–Answer LoRA → OPD 目标与参数优化 | 41.26% | 45.31% | +4.05 个百分点 |
+| Trace-Enhanced BPA LoRA → OPD | 48.812% | **56.430%** | **+7.618 个百分点** |
+| **项目整体优化结果** | **3.48%** | **56.430%** | **+52.950 个百分点** |
+
+从最初的 Qwen3-1.7B Base Model 到当前 Trace-Enhanced BPA OPD，Answer `avg@8` 从 3.48% 提高到 56.430%，累计提高 52.950 个百分点。这一结果集中体现了本项目从任务化 LoRA、Brief–Program–Answer 结构化监督、显式计算轨迹重构，到 Task Reward 与 OPD 训练持续优化的整体作用。在保持非思考生成方式的前提下，1.7B 模型最终达到 56.430% 的 Answer `avg@8`，进一步体现了这套训练路线对于低时延任务场景的实际价值。
+
+完整的数据重构方法与 LoRA 评测结果见 [实验 4 LoRA README](./04-executable-brief-task-reward-topk16-opd/lora/README.md)，OPD 数据、训练方法与完整结果见 [实验 4 OPD README](./04-executable-brief-task-reward-topk16-opd/opd/README.md)。
 
 ---
 
@@ -235,15 +259,16 @@ FinQA-On-Policy-Distillation/
 └── 04-executable-brief-task-reward-topk16-opd/
     ├── finqa_three_field_eval.py
     ├── prompt.py
-    └── lora/
+    ├── lora/
+    └── opd/
 ```
 
 - `data/` 保存 FinQA 官方数据。
 - `01-answer-only-teacher-topk32-opd-baseline/` 保存 Answer-only LoRA 与 Teacher TopK32 OPD。
 - `02-structured-three-field-teacher-only-opd/` 保存三字段数据、LoRA 与 Teacher-only OPD。
 - `03-structured-three-field-opd-objective-tuning/` 保存 Task Reward、蒸馏系数与 Teacher TopK 优化。
-- `04-executable-brief-task-reward-topk16-opd/` 保存本轮公开的 Trace-Enhanced BPA LoRA 数据构造、训练与评测内容。
-- 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用；实验 4 根目录下的评测脚本与 Prompt 用于本轮 LoRA 外部评测。
+- `04-executable-brief-task-reward-topk16-opd/` 保存 Trace-Enhanced BPA LoRA 与 OPD 的数据、训练配置和评测结果。
+- 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用；实验 4 根目录下的评测脚本与 Prompt 由本轮 LoRA 和 OPD 共用。
 
 ---
 
