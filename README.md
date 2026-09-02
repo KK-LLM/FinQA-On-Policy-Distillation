@@ -102,7 +102,7 @@ Student 和 Teacher 分别使用 Qwen3-1.7B 与 Qwen3-8B 三字段 LoRA。Studen
 
 Brief–Program–Answer 三字段 LoRA 形成了明显更强的 Student 和 Teacher。在三字段 LoRA Student 的基础上，Teacher-only OPD 又将 `avg@8` 和 `best@8` 分别提高 2.44 和 3.57 个百分点，说明 Teacher 分布监督仍然能够带来进一步提升。
 
-具体训练保存点及完整测试结果见 [实验 2 README](./02-structured-three-field-teacher-only-opd/README.md)。
+三字段 LoRA 的数据构造与评测结果见 [LoRA README](./02-structured-three-field-teacher-only-opd/lora/README.md)，Teacher-only OPD 的训练过程与结果分析见 [OPD README](./02-structured-three-field-teacher-only-opd/opd/README.md)。
 
 ---
 
@@ -203,7 +203,7 @@ TopK16 的正确率与 TopK32 基本持平，但平均单步耗时从 175.67 秒
 
 在训练数据中引入显式计算轨迹后，两个模型的评测结果均较上一阶段有所提升，进一步支持了通过提高计算信息密度、强化三字段映射来增强非思考模型能力的思路。对于 Qwen3-1.7B，Answer `avg@8` 从 Answer-only LoRA 的 21.17% 提高到 48.812%；这一结果也表明，在无法为推理阶段引入额外思考过程的低时延场景中，针对任务结构优化监督数据，能够为小规模非思考模型提供更有效的能力增强路径。
 
-本次仅公开 Trace-Enhanced BPA 的 LoRA 数据、训练配置和评测结果，不包含后续 OPD 内容。完整的数据重构方法、LoRA 配置和结果分析见 [实验 4 LoRA README](./04-executable-brief-task-reward-topk16-opd/lora/README.md)。
+本次 GitHub 更新仅包含 Trace-Enhanced BPA 的 LoRA 阶段，不包含后续 OPD 内容。完整的数据重构方法与 LoRA 评测结果见 [实验 4 LoRA README](./04-executable-brief-task-reward-topk16-opd/lora/README.md)。
 
 ---
 
@@ -242,7 +242,7 @@ FinQA-On-Policy-Distillation/
 - `01-answer-only-teacher-topk32-opd-baseline/` 保存 Answer-only LoRA 与 Teacher TopK32 OPD。
 - `02-structured-three-field-teacher-only-opd/` 保存三字段数据、LoRA 与 Teacher-only OPD。
 - `03-structured-three-field-opd-objective-tuning/` 保存 Task Reward、蒸馏系数与 Teacher TopK 优化。
-- `04-executable-brief-task-reward-topk16-opd/` 本次仅公开 Trace-Enhanced BPA LoRA 数据、配置与评测脚本。
+- `04-executable-brief-task-reward-topk16-opd/` 保存本轮公开的 Trace-Enhanced BPA LoRA 数据构造、训练与评测内容。
 - 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用；实验 4 根目录下的评测脚本与 Prompt 用于本轮 LoRA 外部评测。
 
 ---
