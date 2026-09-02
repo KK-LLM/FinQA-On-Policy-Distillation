@@ -1,0 +1,12 @@
+{
+  "finqa_brief_program_train_C_0826": {
+    "file_name": "finqa_brief_program_train_C_0826.json",
+    "formatting": "alpaca",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  }
+}

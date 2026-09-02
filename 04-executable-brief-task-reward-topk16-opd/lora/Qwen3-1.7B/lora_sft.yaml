@@ -1,0 +1,60 @@
+### model
+# 从原始 Qwen3-1.7B Base 开始，不使用上一轮 LoRA 合并模型。
+model_name_or_path: /root/model/Qwen3-1.7B
+
+### method
+stage: sft
+do_train: true
+do_eval: false
+finetuning_type: lora
+lora_rank: 32
+lora_alpha: 64
+lora_dropout: 0.0
+flash_attn: fa2
+
+### dataset
+dataset_dir: /root/lora_config
+dataset: finqa_brief_program_train_C_0826
+template: qwen3_nothink
+# 完整 Context 的实测最大 Qwen3 chat-template 长度为 5430。
+cutoff_len: 5450
+max_samples: 10000000
+overwrite_cache: true
+preprocessing_num_workers: 8
+dataloader_num_workers: 8
+
+### output
+output_dir: /root/train_output/Qwen3-1.7B-LoRA-BPA-C-0826
+logging_steps: 10
+save_strategy: steps
+save_steps: 40
+save_total_limit: 20
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: none
+
+### SwanLab
+use_swanlab: true
+swanlab_project: FinQA-BPA-SFT
+swanlab_workspace: kneigh
+swanlab_run_name: Qwen3-1.7B-LoRA-BPA-C-0826
+swanlab_mode: cloud
+
+### train
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 2
+gradient_checkpointing: true
+learning_rate: 1.0e-5
+num_train_epochs: 16
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.0
+max_grad_norm: 1.0
+seed: 42
+bf16: true
+fp16: false
+ddp_timeout: 180000000
+
+### eval（本轮禁用）
+load_best_model_at_end: false

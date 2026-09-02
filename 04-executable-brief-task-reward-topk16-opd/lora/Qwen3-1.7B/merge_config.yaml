@@ -1,0 +1,11 @@
+### model
+model_name_or_path: /root/model/Qwen3-1.7B
+adapter_name_or_path: /root/train_output/Qwen3-1.7B-LoRA-BPA-C-0826
+finetuning_type: lora
+template: qwen3_nothink
+
+### export
+export_dir: /root/merge_result/Qwen3-1.7B-LoRA-BPA-C-0826
+export_size: 5
+export_device: cpu
+export_legacy_format: false

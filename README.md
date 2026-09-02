@@ -1,6 +1,6 @@
 # FinQA On-Policy Distillation
 
-本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 出发，依次完成 Answer-only LoRA 与 OPD、Brief–Program–Answer 三字段 LoRA 与 Teacher-only OPD，并进一步引入 Task Reward，优化蒸馏系数和 Teacher TopK。
+本项目基于 FinQA，研究如何使用 Qwen3-8B 作为 Teacher，通过 On-Policy Distillation（OPD）提升 Qwen3-1.7B 的金融问答能力。实验从 Base Model 直接 OPD 出发，依次完成 Answer-only LoRA 与 OPD、Brief–Program–Answer 三字段 LoRA 与 Teacher-only OPD，并进一步引入 Task Reward，优化蒸馏系数和 Teacher TopK。在此基础上，项目继续提高监督数据中的有效计算信息密度，将 Brief 重构为与 Program 和 Answer 严格对应的显式计算轨迹，并重新训练非思考 Student 与 Teacher。
 
 ---
 
@@ -177,6 +177,36 @@ TopK16 的正确率与 TopK32 基本持平，但平均单步耗时从 175.67 秒
 
 ---
 
+## 实验 4：Trace-Enhanced BPA LoRA
+
+实验 2 的 Teacher-only OPD 将三字段 LoRA Student 的 `avg@8` 从 41.26% 提高到 43.70%；实验 3 继续加入 Task Reward、提高蒸馏系数并缩小 Teacher TopK 后，代表性 `avg@8` 达到 45.31%，但后续增量逐渐收窄。测试中也仍然存在 Brief（计算描述）和 Program 基本正确、最终 Answer 却错误的情况。
+
+这些结果表明，增加输出内容能够提供更多蒸馏信号，但原有 Brief 对中间结果及其依赖关系的表达仍不充分。为了让三字段监督更完整地承载同一条计算过程，本轮将 Brief 重构为显式计算轨迹：依次写出实际操作数、运算顺序、中间结果和最终结果，再由 Program 形式化同一过程，并由 Gold Program 的规范化执行结果和 FinQA 标准答案共同复核 Answer。
+
+最终构造 5,951 条 Trace-Enhanced BPA 训练数据。Qwen3-1.7B 和 Qwen3-8B 均从原始 Base Model 开始训练，继续使用 `qwen3_nothink` 模板。训练完成后，使用本轮 `finqa_three_field_eval.py` 在 FinQA test 的 1,147 道题上进行 K=8 外部评测，评测参数为 `temperature=0.5`、`top_p=1.0`、`enable_thinking=false`。
+
+### Qwen3-1.7B LoRA
+
+| LoRA 监督形式 | Answer `avg@8` | Answer `best@8` | 较上一阶段 `avg@8` |
+|:---|---:|---:|---:|
+| Answer-only | 21.17% | 34.44% | — |
+| Brief–Program–Answer | 41.26% | 57.98% | +20.09 个百分点 |
+| Trace-Enhanced BPA | **48.812%** | **62.424%** | **+7.552 个百分点** |
+
+### Qwen3-8B LoRA
+
+| LoRA 监督形式 | Answer `avg@8` | Answer `best@8` | 较上一阶段 `avg@8` |
+|:---|---:|---:|---:|
+| Answer-only | 59.20% | 63.73% | — |
+| Brief–Program–Answer | 64.71% | 72.71% | +5.51 个百分点 |
+| Trace-Enhanced BPA | **70.031%** | **75.937%** | **+5.321 个百分点** |
+
+在训练数据中引入显式计算轨迹后，两个模型的评测结果均较上一阶段有所提升，进一步支持了通过提高计算信息密度、强化三字段映射来增强非思考模型能力的思路。对于 Qwen3-1.7B，Answer `avg@8` 从 Answer-only LoRA 的 21.17% 提高到 48.812%；这一结果也表明，在无法为推理阶段引入额外思考过程的低时延场景中，针对任务结构优化监督数据，能够为小规模非思考模型提供更有效的能力增强路径。
+
+本次仅公开 Trace-Enhanced BPA 的 LoRA 数据、训练配置和评测结果，不包含后续 OPD 内容。完整的数据重构方法、LoRA 配置和结果分析见 [实验 4 LoRA README](./04-executable-brief-task-reward-topk16-opd/lora/README.md)。
+
+---
+
 ## 目录结构
 
 ```text
@@ -197,18 +227,23 @@ FinQA-On-Policy-Distillation/
 │   ├── prompt.py
 │   ├── lora/
 │   └── opd/
-└── 03-structured-three-field-opd-objective-tuning/
-    ├── README.md
+├── 03-structured-three-field-opd-objective-tuning/
+│   ├── README.md
+│   ├── finqa_three_field_eval.py
+│   ├── prompt.py
+│   └── opd/
+└── 04-executable-brief-task-reward-topk16-opd/
     ├── finqa_three_field_eval.py
     ├── prompt.py
-    └── opd/
+    └── lora/
 ```
 
 - `data/` 保存 FinQA 官方数据。
 - `01-answer-only-teacher-topk32-opd-baseline/` 保存 Answer-only LoRA 与 Teacher TopK32 OPD。
 - `02-structured-three-field-teacher-only-opd/` 保存三字段数据、LoRA 与 Teacher-only OPD。
 - `03-structured-three-field-opd-objective-tuning/` 保存 Task Reward、蒸馏系数与 Teacher TopK 优化。
-- 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用。
+- `04-executable-brief-task-reward-topk16-opd/` 本次仅公开 Trace-Enhanced BPA LoRA 数据、配置与评测脚本。
+- 实验 1、实验 2 根目录下的评测脚本由对应 LoRA 和 OPD 共用；实验 3 根目录下的评测脚本与 Prompt 由三轮 OPD 共用；实验 4 根目录下的评测脚本与 Prompt 用于本轮 LoRA 外部评测。
 
 ---
 
